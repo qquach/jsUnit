@@ -80,6 +80,14 @@ var httpUtil = {
     }
 
     return data;
+  },
+  getParamValues: function(match, params){
+    log.debug("getParamValues: match: %j, params: %j", match, params);
+    var values = {};
+    for(var i in params){
+      values[i] = match[params[i]];
+    }
+    return values;
   }
 }
 

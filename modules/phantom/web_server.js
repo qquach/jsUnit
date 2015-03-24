@@ -4,12 +4,15 @@
  */
 var webserver = require('webserver');
 var RestServer = require('rest_server');
+var log = require('log');
 
 var Server = function(port){
   this.server = webserver.create();
   var restServer = new RestServer();
-  restServer.loadHandlers("modules/servers.js");
-  this.service = server.listen(port, restServer.processRequest);
+  restServer.loadHandlers("modules/servers");
+  this.service = this.server.listen(port, function(request, response){
+    restServer.processRequest(request, response);
+  });
 }
 
 module.exports = Server;

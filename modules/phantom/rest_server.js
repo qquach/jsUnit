@@ -3,50 +3,63 @@
  * process. Does not has cookie, session at all.
  */
 
-var httpUtil = require('http_util');
+var httpUtil = require('http_util'),
+    fs = require('fs'),
+    log = require('log'),
+    util = require('util');
 
 var RestServer = function() {
   this.supportMethods = [ "get", "post", "put", "delete", "head", "options" ]
   this.route = [];
-  this.app = {};
+  this.app = {'test':"check"};
   this.init();
 }
 
 RestServer.prototype = {
   // initialize the supported methods
   init : function() {
+    log.debug('init');
     var self = this;
-    for ( var i in this.supportMethods) {
-      (function(k) {
-        self.app[k] = function(path, handler) {
+    for ( var i = 0; i<this.supportMethods.length; i++) {
+      (function(method) {
+        self.app[method] = function(path, handler) {
+          log.debug("app handler called");
           var regExp = '';
           var params = {};
-          var index = 1;
+          var index = 0;
           regExp = path.replace(/:[^\/]+/g, function(m) {
             index++;
-            params[m] = index;
+            params[m.substr(1)] = index;
             return "([^\\/]*)";
           });
           self.route.push({
-            method : k,
+            method : method,
             path : path,
             handler : handler,
-            regExp : regExp,
+            regExp : "^"+regExp+"$",
             params : params
           });
-        }
-      })(i);
+        };
+      })(this.supportMethods[i]);
     }
   },
   // load handlers from a folder.
   loadHandlers : function(path) {
     loadHandlers(this.app, path);
+    log.debug("route: %j", this.route);
   },
   processRequest : function(request, response) {
+    log.debug('processRequest | method: %s, url: %s', request.method, request.url);
     var uri = httpUtil.parseUrl(request.url);
-    request = expandRequest(request, uri);
-    response = expandRespond(response);
+    expandRequest(request, uri);
+    log.debug("request: %j", request);
+    expandResponse(response);
+    log.debug("response: %j", response);
+
     var pathMatched = false;
+    log.debug("get here");
+    log.debug("this.route.length: %j", this.route);
+    log.debug("get here");
     for (var i = 0; i < this.route.length; i++) {
       var route = this.route[i];
       // check path matching pattern
@@ -55,12 +68,13 @@ RestServer.prototype = {
         continue;
       // check for method match
       pathMatched = true;
-      if (route.method != request.method)
+      if (route.method.toLowerCase() != request.method.toLowerCase())
         continue;
+      log.debug("route match for regex: %s, method: %s", route.regExp, route.method);
       // handling request.
-      request.params = getParams(m, route.params);
+      request.params = httpUtil.getParamValues(m, route.params);
       try {
-        route.handler(request, response);
+        return route.handler(request, response);
       } catch (e) {
         response.status(500).send("Internal Server Error");
       }
@@ -82,19 +96,27 @@ module.exports = RestServer;
  * @param uri
  */
 function expandRequest(request, uri) {
+  log.debug('expandRequest: %j', uri);
   request.query = uri.params;
 
   var method = request.method.toLowerCase();
-  if (!(method != "post" && method != "put"))
+  log.debug("method: %s", method);
+  if (method != "post" && method != "put"){
+    log.debug("not post or put")
     return;
+  }
+
 
   var type = httpUtil.getHeader(request.headers, "Content-Type");
-  if (!type)
+  if (!type){
+    log.debug('type not defined');
     return;
+  }
 
-  if (type.match(/application\/x-www-form-urlencoded/)) {
-    request.body = request.post;
-    request.raw = request.postRaw;
+
+  if (type.match(/application\/x-www-form-urlencoded/i)) {
+    request.body = httpUtil.parseUrlEncoded(request.post);
+    request.raw = request.post;
   } else if (type.match(/(application|text)\/json/)) {
     request.body = JSON.parse(request.post);
     request.raw = request.post
@@ -110,39 +132,55 @@ function expandRequest(request, uri) {
  */
 function expandResponse(response) {
   response.status = function(status) {
+    log.debug("response.status");
     response.statusCode = status;
+    return response;
   };
-  response.send = function(content) {
+  response.send = function() {
+    var content = util.format.apply(util,arguments);
+    log.debug("response.send");
     if (response.closed) {
       throw new Error("Cannot write after connection closed");
     }
-    if (response.timeoutHandle)
+    if (response.timeoutHandle){
+      log.debug('send clearTimeout')
       clearTimeout(response.timeoutHandle);
+    }
+
     response.write(content);
     response.timeoutHandle = setTimeout(function() {
+      log.debug('response.end not called');
       response.end();
-    }, 100);
+    },0);
+    return response;
   };
   response.end = function(content) {
+    var content = util.format.apply(util,arguments);
+    log.debug("response.end");
     if (response.closed) {
       throw new Error("Cannot call to end a closed connection");
     }
-    if (response.timeoutHandle)
+    if (response.timeoutHandle){
+      log.debug("end clearTimeout");
       clearTimeout(response.timeoutHandle);
+    }
+
     var content = content || "";
-    response.send(content);
+    response.write(content);
     response.close();
+    return response;
   };
   response.json = function(jsonObj) {
+    log.debug("response.json");
     var content = JSON.stringify(jsonObj);
     response.setHeader('Content-Type', 'application/json');
     response.end(content);
+    return response;
   }
 }
 
 function loadHandlers(app, path) {
   path = path || "modules/servers";
-  var fs = require('fs');
   var list = fs.list(path);
   for (var x = 0; x < list.length; x++) {
     if (list[x] == "." || list[x] == "..")
