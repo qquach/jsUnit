@@ -1,6 +1,7 @@
 /**
  *
  */
+//console.log("loading test_results");
 module.exports = {
     totalTests: 0,
     isPassed: false,

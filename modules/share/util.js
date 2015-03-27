@@ -2,6 +2,9 @@
  * utilities function
  */
 
+//console.log("loading util");
+var log = require('log');
+
 var util = {
     format:function(){
       var args = util.toArray(arguments);
@@ -35,7 +38,7 @@ var util = {
         if(util.isDate(a) && util.isDate(b)){
           return a.getTime()==b.getTime();
         }
-        else if(util.isRegExp(a) && util.isRexExp(b)){
+        else if(util.isRegExp(a) && util.isRegExp(b)){
           return a.toString()==b.toString();
         }
         else if(util.isArray(a) && util.isArray(b)){
@@ -78,7 +81,52 @@ var util = {
         return true;
       }
       return false;
+    },
+    clone: function(obj){
+      if(typeof(obj)!="object") return obj;
+      if(util.isDate(obj)) return new Date(obj.getTime());
+      if(util.isRegExp(obj)) return new RegExp(obj);
+      if(typeof(obj.constructor)=="function"){
+        var out = obj.constructor();
+        for(var i in obj) {
+            if(obj.hasOwnProperty(i)) {
+                out[i] = util.clone(obj[i]);
+            }
+        }
+        return out;
+      }
+      throw new Error("unhandle type for cloning");
+    },
+    extend: function(){
+      var args = util.toArray(arguments);
+      //log.debug("args.length: %d", args.length);
+      if(args.length==0) return undefined;
+      else if(args.length == 1) return args[0];
+      else{
+        var last = args[args.length-1];
+        for(var i = args.length-2; i>=0;i--){
+          //log.debug("i: %d, last: %j",i , last);
+          var tmp = i==0 ? args[0] : util.clone(args[i]);
+          //log.debug("tmp: %j", tmp);
+          last = _extend(tmp, last);
+        }
+        return last;
+      }
     }
 };
 
 module.exports = util;
+
+function _extend(obj1, obj2){
+  if(util.isObject(obj1) && util.isObject(obj2)){
+    for(var i in obj2){
+      obj1[i] = obj2[i];
+    }
+  }
+  else if(util.isArray(obj1) && util.isArray(obj2)) {
+    for(var i = 0; i < obj2.length; i++){
+      obj1[i] = obj2[i];
+    }
+  }
+  return obj1;
+}

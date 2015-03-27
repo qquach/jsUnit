@@ -5,7 +5,7 @@
 
 var httpUtil = require('http_util'),
     fs = require('fs'),
-    log = require('log'),
+    log = require('log').init("restServer","info"),
     util = require('util');
 
 var RestServer = function() {
@@ -112,7 +112,6 @@ function expandRequest(request, uri) {
     log.debug('type not defined');
     return;
   }
-
 
   if (type.match(/application\/x-www-form-urlencoded/i)) {
     request.body = httpUtil.parseUrlEncoded(request.post);

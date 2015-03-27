@@ -1,6 +1,7 @@
 /**
  * simple log module
  */
+//console.log("loading log");
 var LogLevel = {
     "debug":4,
     "info":3,

@@ -2,6 +2,7 @@
  * Common functional function collection
  * Every function should take in at least one function as parameter, do something or return another function.
  */
+//console.log("loading cc");
 module.exports = {
     /**
      * calling callback n times

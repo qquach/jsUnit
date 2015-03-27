@@ -2,7 +2,8 @@
  * test object inject into test function
  */
 var util = require('util'),
-    testResults = require('test_results');
+    testResults = require('test_results'),
+    log = require('log').init('test');
 
 var test = {
   assertEquals : function(a, b, msg) {
@@ -207,6 +208,23 @@ var test = {
       return;
     clearTimeout(timeoutHandle);
     timeoutHandle = setTimeout(timeoutError, time);
+  },
+  assert: function(){
+    testResults.totalAssert++;
+  },
+  failed: function(msg){
+    log.debug("failed: message: %s", msg);
+    throw {
+      type: 'failed',
+      message: msg
+    }
+  },
+  error: function(msg, stack){
+    throw {
+      type: 'error',
+      message: msg,
+      stack: stack
+    }
   }
 };
 module.exports = test;

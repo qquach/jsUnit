@@ -2,10 +2,19 @@
  * This is the entry point for testing
  */
 var fs = require('fs'),
-    log = require('log'),
+    log = require('log').init("test_manager","info"),
     util = require('util'),
     testUtil = require('test'),
     testResults = require('test_results');
+
+var continueOnError = true;
+
+Object.defineProperty(testUtil,"error",{
+  set: function(e){
+    //log.debug("testUtil error set: %j", e);
+    handleError(e);
+  }
+});
 
 //collection of all tests will be run.
 var testCollection = [];
@@ -118,27 +127,34 @@ function runTest(){
     test.start = new Date();
     console.log(util.format("\nTest %s started", test.name));
     if(test.setUp) test.setUp();
+    log.debug("before calling test handler");
     test.handler(testUtil);
+    log.debug("after calling test handler");
   }
   catch(e){
     //handle skip test;
-    if(e.type=="skip"){
-      testResults.skippedTests++;
-      testResults.runTests--;
-      test.end = new Date();
-      var msg = util.format("Test %s skipped - after: %d\n", test.name, test.end-test.start);
-      return finishTest(test, msg, true);
-    }
-    if(e.type == "failed"){
-      testResults.failedTests++;
-      return finishTest(test, e.message, false);
-    }
-    //stop test for now. will handle multiple failed tests later
-    //timeout or other exception
-    var msg = util.format("Exception happens while running test %s \n %s\n", e.message, e.stack);
-    testResults.failedTests++;
-    return finishTest(test, msg, false);
+    handleError(e);
   }
+}
+
+function handleError(e){
+  //log.debug("runTest: exception type: %s", e.type);
+  if(e.type=="skip"){
+    testResults.skippedTests++;
+    testResults.runTests--;
+    currentTest.end = new Date();
+    var msg = util.format("Test %s skipped - after: %d\n", currentTest.name, currentTest.end-currentTest.start);
+    return finishTest(currentTest, msg, true);
+  }
+  if(e.type == "failed"){
+    testResults.failedTests++;
+    return finishTest(currentTest, e.message, continueOnError);
+  }
+  //stop test for now. will handle multiple failed tests later
+  //timeout or other exception
+  var msg = util.format("Exception happens while running test %s \n %s\n", e.message, e.stack);
+  testResults.failedTests++;
+  return finishTest(currentTest, msg, continueOnError);
 }
 
 function timeoutError(){
@@ -148,6 +164,7 @@ function timeoutError(){
 }
 
 function finishTest(test, msg, isContinue){
+  //log.debug("finishTest: %s, isContinue: %s", msg, isContinue);
   clearTimeout(timeoutHandle);
   if(test.tearDown) test.tearDown();
   if(isContinue) {

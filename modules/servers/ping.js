@@ -4,6 +4,9 @@
  */
 var log = require('log');
 module.exports = function(app){
+  app.get('/blank',function(req,res){
+    res.end("");
+  });
   app.get('/ping',function(req,res){
     log.debug('get ping');
     res.status(200).send("get ping");
