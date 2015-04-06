@@ -5,7 +5,7 @@
 
 var httpUtil = require('http_util'),
     fs = require('fs'),
-    log = require('log').init("restServer","info"),
+    log = require('log').init("restServer","debug"),
     util = require('util');
 
 var RestServer = function() {
@@ -31,7 +31,7 @@ RestServer.prototype = {
             index++;
             params[m.substr(1)] = index;
             return "([^\\/]*)";
-          });
+          }).replace(/\*/g,".*");
           self.route.push({
             method : method,
             path : path,
@@ -45,6 +45,7 @@ RestServer.prototype = {
   },
   // load handlers from a folder.
   loadHandlers : function(path) {
+    log.debug("loadHandlers: path: %s", path);
     loadHandlers(this.app, path);
     log.debug("route: %j", this.route);
   },
@@ -185,6 +186,7 @@ function loadHandlers(app, path) {
     if (list[x] == "." || list[x] == "..")
       continue;
     var file = path + "/" + list[x];
+
     if (fs.isDirectory(file)) {
       loadHandlers(app, file);
     } else {
@@ -195,6 +197,7 @@ function loadHandlers(app, path) {
 
 // need to create prefixed name to avoid conflicting with normal modules.
 function loadHandler(app, file, path) {
+  log.debug("loadHandler: file: %s, path: %s", file, path);
   var name = "server_handler_" + file.slice(0, -3);
   var content = fs.read(path);
   module.define(name, content);
