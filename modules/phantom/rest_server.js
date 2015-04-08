@@ -5,7 +5,7 @@
 
 var httpUtil = require('http_util'),
     fs = require('fs'),
-    log = require('log').init("restServer","debug"),
+    log = require('log').init("restServer","info"),
     util = require('util');
 
 var RestServer = function() {
@@ -58,9 +58,7 @@ RestServer.prototype = {
     log.debug("response: %j", response);
 
     var pathMatched = false;
-    log.debug("get here");
     log.debug("this.route.length: %j", this.route);
-    log.debug("get here");
     for (var i = 0; i < this.route.length; i++) {
       var route = this.route[i];
       // check path matching pattern

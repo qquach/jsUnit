@@ -35,6 +35,9 @@ module.exports = {
     client.run(function(test) {
       console.log("client side load url");
       test.assertNotNull(document.body);
+      var length = document.getElementsByTagName("a").length;
+      console.log("length " + length);
+      test.assertTrue(length>20);
       test.done();
     });
   },

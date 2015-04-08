@@ -4,7 +4,7 @@
 var webPage = require('webpage'),
     fs = require('fs'),
     util = require('util'),
-    log = require('log').init("client","info");
+    log = require('log').init("client","debug");
 
 var defaultOptions = {
     url:"",
@@ -18,6 +18,7 @@ var Client = function(test, opts){
   this.page = webPage.create();
   this._init();
   this.isLoaded = false;
+  this.testHandlers = [];
 };
 
 Client.prototype = {
@@ -38,7 +39,7 @@ Client.prototype = {
         self.page.evaluate(function(){
           //console.log("page.onInitialized one client side");
           //initialize test object
-          jsUnit.test = jsUnit.require("test");
+          jsUnit.test = jsUnit.require("client_test");
           jsUnit.test.done = function(){
             window.callPhantom({ op: "done"});
           }
@@ -58,11 +59,14 @@ Client.prototype = {
       };
       this.page.open(this.url, function(){
         log.debug("page loaded on %s", self.page.url);
+      });
+      this.page.onLoadFinished = function(status){
+        log.debug("page load finished: %s", status);
         self.isLoaded = true;
-        if(self.testHandler){
+        if(self.testHandlers.length>0){
           self.invokeTestHandler();
         }
-      });
+      }
       this.page.onCallback = function(data){
         //log.debug("page.onCallback: %j", data);
         if(!util.isObject(data)) return;
@@ -83,6 +87,9 @@ Client.prototype = {
               self.test.error = {type:"error", message: data.message, stack: data.stack};
             },10);
             break;
+          case "next":
+            self.invokeTestHandler();
+            break;
         }
       }
       this.page.onConsoleMessage = function(msg){
@@ -97,19 +104,25 @@ Client.prototype = {
       }
       else{
         log.debug("page is not ready");
-        this.testHandler = testHandler;
+        this.testHandlers.push(testHandler);
       }
     },
     invokeTestHandler: function(){
       log.debug("invokeTestHandler");
-      var testHandlerStr = this.testHandler.toString();
+      var nextHandler = this.testHandlers.shift();
+      if(!nextHandler) {
+        log.info("no more test handler");
+        this.test.done();
+      }
+      var testHandlerStr = nextHandler.toString();
       this.page.evaluate(function(testStr){
-        //console.log("invokeTestHandler on client side");
+        console.log("invokeTestHandler on client side");
         try{
           var testHandler;
           eval("testHandler = " + testStr);
           testHandler(jsUnit.test);
         }catch(e){
+          console.log("error");
           if(e.type == "failed"){
             window.callPhantom({ op: "failed", message: e.message});
           }
@@ -142,20 +155,19 @@ function createInitScript(){
   if(initScript) return;
   log.info("createInitScript");
 //load module and shim no need to encapsulate the scope
-  var list = fs.list("modules/client");
-  log.debug(list);
+  var list = ["module.js","shim.js"];
   for(var x = 0; x < list.length; x++){
-      if(list[x] == "." || list[x] == "..") continue;
       var file = "modules/client/" + list[x];
       initScript += fs.read(file) + "\n";
   }
   //load share script.
-  list = ["util.js","log.js","cc.js","test_results.js","test.js"]
+  list = ["share/util.js","share/log.js","share/cc.js","share/test_results.js","share/test.js","client/client_test.js"];
 
   for(var x = 0; x < list.length; x++){
-      var file = "modules/share/" + list[x];
+      var file = "modules/" + list[x];
+      var i = list[x].indexOf("/")+1;
       var content = "(function(module, require) {\n";
-      content += "module.loadingName = '" + list[x].slice(0,-3) +"';\n";
+      content += "module.loadingName = '" + list[x].slice(i,-3) +"';\n";
       content += fs.read(file);
       content += "\n})(jsUnit.module, jsUnit.require);\n";
       initScript += content;
